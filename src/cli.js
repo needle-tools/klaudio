@@ -114,8 +114,8 @@ const NavHint = ({ back = true, extra = "" }) =>
 // ── Screen: Scope ───────────────────────────────────────────────
 const ScopeScreen = ({ onNext }) => {
   const items = [
-    { label: "Global (~/.claude)     — sounds in all projects", value: "global" },
-    { label: "This project (.claude/) — project-specific", value: "project" },
+    { label: "Global — Claude Code + VS Code Copilot (all projects)", value: "global" },
+    { label: "This project — Claude Code + Copilot (incl. GitHub agent)", value: "project" },
   ];
   return h(Box, { flexDirection: "column" },
     h(Text, { bold: true }, "  Where should sounds be installed?"),
@@ -973,7 +973,7 @@ const ConfirmScreen = ({ scope, sounds, onConfirm, onBack }) => {
   return h(Box, { flexDirection: "column" },
     h(Text, { bold: true, marginLeft: 2 }, "  Ready to install:"),
     h(Box, { marginTop: 1, flexDirection: "column" },
-      h(Text, { marginLeft: 4 }, `Scope: ${scope === "global" ? "Global (~/.claude)" : "This project (.claude/)"}`),
+      h(Text, { marginLeft: 4 }, `Scope: ${scope === "global" ? "Global (Claude Code + VS Code Copilot)" : "This project (Claude Code + Copilot + GitHub agent)"}`),
       ...soundEntries.map(([eid, path]) =>
         h(Text, { key: eid, marginLeft: 4 },
           `${EVENTS[eid].name} → ${basename(path)}`
