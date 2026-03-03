@@ -802,6 +802,7 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
         const allOutputs = [];
 
         // Unity .resource files — extract FSB5 banks directly (no vgmstream needed for PCM16)
+        const fsbFiles = []; // Vorbis .fsb files that need vgmstream conversion
         if (game.unityResources && game.unityResources.length > 0) {
           setStatus(`Extracting Unity audio from ${game.unityResources.length} resource file(s)...`);
           for (const resPath of game.unityResources) {
@@ -809,47 +810,60 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
             setStatus(`Extracting: ${basename(resPath)}`);
             try {
               const extracted = await extractUnityResource(resPath, outputDir);
-              // Only keep .wav files (PCM16); .fsb files need vgmstream
               for (const f of extracted) {
                 if (f.path.endsWith(".wav")) {
                   allOutputs.push(f.path);
+                } else if (f.path.endsWith(".fsb")) {
+                  fsbFiles.push({ path: f.path, name: f.name });
                 }
               }
               setExtracted(allOutputs.length);
             } catch { /* skip */ }
           }
-          // If we got WAV files, we're done (skip vgmstream for .fsb Vorbis files for now)
-          // TODO: could also convert .fsb Vorbis via vgmstream if available
         }
 
-        // Traditional packed audio (Wwise/FMOD)
-        if (allOutputs.length === 0) {
+        // Convert extracted .fsb Vorbis files via vgmstream, or handle traditional packed audio
+        const needsVgmstream = fsbFiles.length > 0 || (allOutputs.length === 0 && !game.unityResources?.length);
+        if (needsVgmstream) {
           // Get vgmstream-cli (downloads if needed)
           setStatus("Getting vgmstream-cli...");
           const vgmstream = await getVgmstreamPath((msg) => {
             if (!cancelled) setStatus(msg);
           });
 
-          // Find packed audio files
-          setStatus(`Scanning ${game.name} for packed audio...`);
-          const packedFiles = await findPackedAudioFiles(game.path, 30);
-
-          if (packedFiles.length === 0 && allOutputs.length === 0) {
-            if (!cancelled) onDone({ files: [], error: "No extractable audio files found" });
-            return;
-          }
-
-          setStatus(`Found ${packedFiles.length} files. Extracting...`);
-
-          for (const file of packedFiles) {
+          // Convert Unity-extracted .fsb files
+          for (const fsb of fsbFiles) {
             if (cancelled) return;
-            setStatus(`Extracting: ${file.name}`);
+            setStatus(`Converting: ${fsb.name}`);
             try {
-              const outputs = await extractToWav(file.path, outputDir, vgmstream);
+              const outputs = await extractToWav(fsb.path, outputDir, vgmstream);
               allOutputs.push(...outputs);
               setExtracted(allOutputs.length);
-            } catch {
-              // Skip files that fail
+            } catch { /* skip */ }
+          }
+
+          // Also scan for traditional packed audio (Wwise/FMOD)
+          if (allOutputs.length === 0 || !game.unityResources?.length) {
+            setStatus(`Scanning ${game.name} for packed audio...`);
+            const packedFiles = await findPackedAudioFiles(game.path, 30);
+
+            if (packedFiles.length === 0 && allOutputs.length === 0) {
+              if (!cancelled) onDone({ files: [], error: "No extractable audio files found" });
+              return;
+            }
+
+            setStatus(`Found ${packedFiles.length} files. Extracting...`);
+
+            for (const file of packedFiles) {
+              if (cancelled) return;
+              setStatus(`Extracting: ${file.name}`);
+              try {
+                const outputs = await extractToWav(file.path, outputDir, vgmstream);
+                allOutputs.push(...outputs);
+                setExtracted(allOutputs.length);
+              } catch {
+                // Skip files that fail
+              }
             }
           }
         }
