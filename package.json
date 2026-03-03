@@ -1,0 +1,39 @@
+{
+  "name": "claude-sounds",
+  "version": "0.1.0",
+  "description": "Add sound effects to Claude Code — play sounds when tasks complete, notifications arrive, and more",
+  "type": "module",
+  "bin": {
+    "claude-sounds": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "sounds/"
+  ],
+  "scripts": {
+    "generate-sounds": "node scripts/generate-sounds.js",
+    "start": "node bin/cli.js",
+    "build": "bun run build.js",
+    "build:all": "bun run build.js --all"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "sounds",
+    "sfx",
+    "hooks",
+    "notifications",
+    "audio"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^6.8.0",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "react": "^19.2.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
