@@ -8,7 +8,7 @@ import { pipeline } from "node:stream/promises";
 const TOOLS_DIR = join(homedir(), ".klaudio", "tools");
 
 // Packed audio formats that vgmstream-cli can convert to WAV
-const PACKED_EXTENSIONS = new Set([".wem", ".bnk", ".bank", ".fsb", ".pck"]);
+const PACKED_EXTENSIONS = new Set([".wem", ".bnk", ".bank", ".fsb", ".pck", ".bun"]);
 
 /**
  * Check if a file is a packed audio format we can extract.
@@ -140,7 +140,7 @@ export async function findPackedAudioFiles(gamePath, maxFiles = 50) {
           const ext = extname(entry.name).toLowerCase();
           // Formats vgmstream-cli can convert directly
           // (.bnk needs bnkextr preprocessing — skip for now)
-          if (ext === ".wem" || ext === ".fsb" || ext === ".bank") {
+          if (ext === ".wem" || ext === ".fsb" || ext === ".bank" || ext === ".bun") {
             results.push({ path: fullPath, name: entry.name, dir });
           }
         }

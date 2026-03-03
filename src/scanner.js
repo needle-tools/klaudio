@@ -3,7 +3,7 @@ import { join, extname } from "node:path";
 import { platform, homedir } from "node:os";
 
 const AUDIO_EXTENSIONS = new Set([".wav", ".mp3", ".ogg", ".flac", ".aac"]);
-const PACKED_EXTENSIONS = new Set([".wem", ".bnk", ".bank", ".fsb", ".pck"]);
+const PACKED_EXTENSIONS = new Set([".wem", ".bnk", ".bank", ".fsb", ".pck", ".bun"]);
 const UNITY_RESOURCE_EXTENSIONS = new Set([".resource", ".ress"]);
 const MAX_DEPTH = 5;
 const MAX_FILES = 200;

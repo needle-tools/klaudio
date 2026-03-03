@@ -7,6 +7,7 @@ import { getAvailableGames } from "./scanner.js";
 import { install, uninstall, getExistingSounds } from "./installer.js";
 import { getVgmstreamPath, findPackedAudioFiles, extractToWav } from "./extractor.js";
 import { extractUnityResource } from "./unity.js";
+import { extractBunFile, isBunFile } from "./scumm.js";
 import { getCachedExtraction, cacheExtraction, categorizeLooseFiles, getCategories, sortFilesByPriority } from "./cache.js";
 import { basename, dirname } from "node:path";
 import { tmpdir } from "node:os";
@@ -422,6 +423,12 @@ const CATEGORY_ICONS = {
   ambient: "🌿", music: "🎵", other: "📦", all: "📂",
 };
 
+const FileItem = ({ isSelected, label, usedTag }) =>
+  h(Box, null,
+    h(Text, { color: isSelected ? ACCENT : undefined, bold: isSelected }, label),
+    usedTag ? h(Text, { dimColor: true }, usedTag) : null,
+  );
+
 const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
   const eventIds = Object.keys(EVENTS);
   const [currentEvent, setCurrentEvent] = useState(0);
@@ -512,9 +519,6 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
       const hasSounds = Object.values(sounds).some(Boolean);
       const tabCount = hasSounds ? eventIds.length + 1 : eventIds.length;
       setCurrentEvent((i) => (i + 1) % tabCount);
-      setHighlightedFile(null);
-      setActiveCategory(null);
-      setFilter("");
     } else if (key.escape) {
       if (playing) {
         stopPlayback();
@@ -595,7 +599,7 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
     h(Text, { bold: true, color: nowPlayingFile ? "green" : ACCENT },
       `${game.name}`,
     ),
-    h(Box, { marginTop: 0, gap: 2 },
+    h(Box, { marginTop: 0, gap: 2, overflowX: "hidden" },
       ...eventIds.map((eid, i) => {
         const assigned = sounds[eid];
         const isCurrent = i === currentEvent;
@@ -699,6 +703,14 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
     );
   }
 
+  // Build a reverse map: filePath -> event name(s) it's assigned to
+  const assignedToMap = {};
+  for (const eid of eventIds) {
+    if (sounds[eid]) {
+      (assignedToMap[sounds[eid]] ||= []).push(EVENTS[eid].name);
+    }
+  }
+
   // Phase 1: Browse and pick files (auto-preview plays on highlight)
   const filterLower = filter.toLowerCase();
   const allFileItems = categoryFiles.map((f) => {
@@ -707,8 +719,10 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
     const catTag = (!activeCategory || activeCategory === "all") && f.category && f.category !== "other"
       ? `[${(CATEGORY_LABELS[f.category] || f.category).toUpperCase()}] ` : "";
     const name = f.displayName || f.name;
+    const usedFor = assignedToMap[f.path];
     return {
       label: `${catTag}${name}${durStr}`,
+      usedTag: usedFor ? `  ← ${usedFor.join(", ")}` : null,
       value: f.path,
     };
   });
@@ -748,7 +762,7 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
         : null,
     fileItems.length > 0
       ? h(Box, { marginLeft: 2 },
-          h(SelectInput, { indicatorComponent: Indicator, itemComponent: Item,
+          h(SelectInput, { indicatorComponent: Indicator, itemComponent: FileItem,
             items: fileItems,
             limit: 15,
             onHighlight: (item) => {
@@ -827,8 +841,31 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
           }
         }
 
-        // Convert extracted .fsb Vorbis files via vgmstream, or handle traditional packed audio
-        const needsVgmstream = fsbFiles.length > 0 || (allOutputs.length === 0 && !game.unityResources?.length);
+        // Scan for packed audio files (Wwise/FMOD/BUN)
+        let packedFiles = [];
+        if (allOutputs.length === 0 || !game.unityResources?.length) {
+          setStatus(`Scanning ${game.name} for packed audio...`);
+          packedFiles = await findPackedAudioFiles(game.path, 30);
+        }
+
+        // Extract BUN files natively (SCUMM engine audio)
+        const bunFiles = packedFiles.filter((f) => f.name.toLowerCase().endsWith(".bun"));
+        const nonBunFiles = packedFiles.filter((f) => !f.name.toLowerCase().endsWith(".bun"));
+
+        for (const file of bunFiles) {
+          if (cancelled) return;
+          setStatus(`Extracting SCUMM audio: ${file.name}`);
+          try {
+            const bunOutputs = await extractBunFile(file.path, outputDir, (msg) => {
+              if (!cancelled) setStatus(msg);
+            });
+            allOutputs.push(...bunOutputs);
+            setExtracted(allOutputs.length);
+          } catch { /* skip */ }
+        }
+
+        // Convert extracted .fsb Vorbis files via vgmstream, or handle non-BUN packed audio
+        const needsVgmstream = fsbFiles.length > 0 || nonBunFiles.length > 0;
         if (needsVgmstream) {
           // Get vgmstream-cli (downloads if needed)
           setStatus("Getting vgmstream-cli...");
@@ -847,30 +884,21 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
             } catch { /* skip */ }
           }
 
-          // Also scan for traditional packed audio (Wwise/FMOD)
-          if (allOutputs.length === 0 || !game.unityResources?.length) {
-            setStatus(`Scanning ${game.name} for packed audio...`);
-            const packedFiles = await findPackedAudioFiles(game.path, 30);
-
-            if (packedFiles.length === 0 && allOutputs.length === 0) {
-              if (!cancelled) onDone({ files: [], error: "No extractable audio files found" });
-              return;
-            }
-
-            setStatus(`Found ${packedFiles.length} files. Extracting...`);
-
-            for (const file of packedFiles) {
-              if (cancelled) return;
-              setStatus(`Extracting: ${file.name}`);
-              try {
-                const outputs = await extractToWav(file.path, outputDir, vgmstream);
-                allOutputs.push(...outputs);
-                setExtracted(allOutputs.length);
-              } catch {
-                // Skip files that fail
-              }
-            }
+          // Convert non-BUN packed audio via vgmstream
+          for (const file of nonBunFiles) {
+            if (cancelled) return;
+            setStatus(`Extracting: ${file.name}`);
+            try {
+              const outputs = await extractToWav(file.path, outputDir, vgmstream);
+              allOutputs.push(...outputs);
+              setExtracted(allOutputs.length);
+            } catch { /* skip */ }
           }
+        }
+
+        if (allOutputs.length === 0 && fsbFiles.length === 0 && packedFiles.length === 0) {
+          if (!cancelled) onDone({ files: [], error: "No extractable audio files found" });
+          return;
         }
 
         if (!cancelled) {
