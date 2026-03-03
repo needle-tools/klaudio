@@ -468,13 +468,25 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
     setElapsed(0);
   }, []);
 
-  // Pre-fetch durations for visible window around highlighted file
+  // Pre-fetch durations: first 15 on category enter, ±15 around highlighted file
+  useEffect(() => {
+    const end = Math.min(categoryFiles.length, 15);
+    for (let i = 0; i < end; i++) {
+      const f = categoryFiles[i];
+      if (!fileDurations[f.path]) {
+        getWavDuration(f.path).then((dur) => {
+          if (dur != null) setFileDurations((d) => ({ ...d, [f.path]: dur }));
+        });
+      }
+    }
+  }, [activeCategory]);
+
   useEffect(() => {
     if (!highlightedFile || highlightedFile === "_skip") return;
     const idx = categoryFiles.findIndex((f) => f.path === highlightedFile);
     if (idx < 0) return;
-    const start = Math.max(0, idx - 7);
-    const end = Math.min(categoryFiles.length, idx + 8);
+    const start = Math.max(0, idx - 15);
+    const end = Math.min(categoryFiles.length, idx + 16);
     for (let i = start; i < end; i++) {
       const f = categoryFiles[i];
       if (!fileDurations[f.path]) {
