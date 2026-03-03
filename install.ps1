@@ -1,7 +1,7 @@
-# claude-sounds installer for Windows PowerShell
-# Usage: irm https://raw.githubusercontent.com/user/claude-sounds/main/install.ps1 | iex
+# clonk installer for Windows PowerShell
+# Usage: irm https://raw.githubusercontent.com/user/clonk/main/install.ps1 | iex
 #
-# Runs the interactive claude-sounds setup via npx.
+# Runs the interactive clonk setup via npx.
 # Requires Node.js 18+ (which Claude Code already requires).
 
 $ErrorActionPreference = "Stop"
@@ -19,7 +19,7 @@ if ([int]$nodeVersion -lt 18) {
 }
 
 Write-Host ""
-Write-Host "  🔊 Installing Claude Sounds..." -ForegroundColor Cyan
+Write-Host "  🔊 Installing Clonk..." -ForegroundColor Cyan
 Write-Host ""
 
-npx claude-sounds @args
+npx clonk @args

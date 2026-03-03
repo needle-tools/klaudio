@@ -1,10 +1,10 @@
 {
-  "name": "claude-sounds",
+  "name": "clonk",
   "version": "0.1.0",
-  "description": "Add sound effects to Claude Code — play sounds when tasks complete, notifications arrive, and more",
+  "description": "Add sound effects to your coding sessions — play sounds when tasks complete, notifications arrive, and more",
   "type": "module",
   "bin": {
-    "claude-sounds": "./bin/cli.js"
+    "clonk": "./bin/cli.js"
   },
   "files": [
     "bin/",
@@ -18,13 +18,14 @@
     "build:all": "bun run build.js --all"
   },
   "keywords": [
-    "claude",
-    "claude-code",
+    "clonk",
     "sounds",
     "sfx",
     "hooks",
     "notifications",
-    "audio"
+    "audio",
+    "claude-code",
+    "coding-tools"
   ],
   "license": "MIT",
   "dependencies": {

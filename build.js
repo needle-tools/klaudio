@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build standalone binaries for claude-sounds using bun compile.
+ * Build standalone binaries for clonk using bun compile.
  *
  * Usage:
  *   bun run build.js              # build for current platform
@@ -35,8 +35,8 @@ function getCurrentTarget() {
 
 function build(name) {
   const { target, ext } = TARGETS[name];
-  const outDir = join(DIST, `claude-sounds-${name}`);
-  const outFile = join(outDir, `claude-sounds${ext}`);
+  const outDir = join(DIST, `clonk-${name}`);
+  const outFile = join(outDir, `clonk${ext}`);
 
   console.log(`\n  Building ${name}...`);
 
@@ -70,7 +70,7 @@ try {
   }
 } catch { /* already exists */ }
 
-console.log("🔊 Building claude-sounds standalone binaries\n");
+console.log("🔊 Building clonk standalone binaries\n");
 
 if (buildAll) {
   for (const name of Object.keys(TARGETS)) {

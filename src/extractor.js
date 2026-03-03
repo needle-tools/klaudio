@@ -5,7 +5,7 @@ import { join, extname, basename, resolve as resolvePath } from "node:path";
 import { platform, homedir, tmpdir } from "node:os";
 import { pipeline } from "node:stream/promises";
 
-const TOOLS_DIR = join(homedir(), ".claude-sounds", "tools");
+const TOOLS_DIR = join(homedir(), ".clonk", "tools");
 
 // Packed audio formats that vgmstream-cli can convert to WAV
 const PACKED_EXTENSIONS = new Set([".wem", ".bnk", ".bank", ".fsb", ".pck"]);

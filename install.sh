@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# claude-sounds installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/user/claude-sounds/main/install.sh | bash
+# clonk installer
+# Usage: curl -fsSL https://raw.githubusercontent.com/user/clonk/main/install.sh | bash
 #
-# Runs the interactive claude-sounds setup via npx.
+# Runs the interactive clonk setup via npx.
 # Requires Node.js 18+ (which Claude Code already requires).
 
 set -e
@@ -20,7 +20,7 @@ if [ "$NODE_VERSION" -lt 18 ]; then
 fi
 
 echo ""
-echo "  🔊 Installing Claude Sounds..."
+echo "  🔊 Installing Clonk..."
 echo ""
 
-npx claude-sounds "$@"
+npx clonk "$@"

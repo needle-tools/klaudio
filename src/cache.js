@@ -2,7 +2,7 @@ import { readdir, mkdir, readFile, writeFile, stat, copyFile } from "node:fs/pro
 import { join, extname, basename, dirname } from "node:path";
 import { homedir } from "node:os";
 
-const CACHE_DIR = join(homedir(), ".claude-sounds", "cache");
+const CACHE_DIR = join(homedir(), ".clonk", "cache");
 
 /**
  * Category keywords to match against folder names, filenames, and Wwise event names.

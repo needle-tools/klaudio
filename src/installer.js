@@ -62,19 +62,19 @@ export async function install({ scope, sounds }) {
     const hookEvent = event.hookEvent;
     const playCommand = getHookPlayCommand(soundPath);
 
-    // Check if there's already a claude-sounds hook for this event
+    // Check if there's already a clonk hook for this event
     if (!settings.hooks[hookEvent]) {
       settings.hooks[hookEvent] = [];
     }
 
-    // Remove any existing claude-sounds entries
+    // Remove any existing clonk entries
     settings.hooks[hookEvent] = settings.hooks[hookEvent].filter(
-      (entry) => !entry._claude_sounds
+      (entry) => !entry._clonk
     );
 
     // Add our hook
     settings.hooks[hookEvent].push({
-      _claude_sounds: true,
+      _clonk: true,
       matcher: "",
       hooks: [
         {
@@ -96,7 +96,7 @@ export async function install({ scope, sounds }) {
 }
 
 /**
- * Uninstall claude-sounds hooks from settings.
+ * Uninstall clonk hooks from settings.
  */
 export async function uninstall(scope) {
   const claudeDir = getTargetDir(scope);
@@ -109,7 +109,7 @@ export async function uninstall(scope) {
     if (settings.hooks) {
       for (const [event, entries] of Object.entries(settings.hooks)) {
         settings.hooks[event] = entries.filter(
-          (entry) => !entry._claude_sounds
+          (entry) => !entry._clonk
         );
         if (settings.hooks[event].length === 0) {
           delete settings.hooks[event];

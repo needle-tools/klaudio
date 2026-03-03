@@ -35,7 +35,7 @@ const isUninstallMode = process.argv.includes("--uninstall") || process.argv.inc
 // ── Header component ────────────────────────────────────────────
 const Header = () =>
   h(Box, { flexDirection: "column", marginBottom: 1 },
-    h(Text, { bold: true, color: "cyan" }, "  🔊 Claude Sounds"),
+    h(Text, { bold: true, color: "cyan" }, "  🔊 Clonk"),
     h(Text, { dimColor: true }, isUninstallMode
       ? "  Remove sound effects from Claude Code"
       : "  Add sound effects to your Claude Code sessions"),
@@ -661,7 +661,7 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
         setStatus(`Found ${packedFiles.length} files. Extracting...`);
 
         // Extract to temp dir
-        const outputDir = join(tmpdir(), "claude-sounds-extract", game.name.replace(/[^a-zA-Z0-9]/g, "_"));
+        const outputDir = join(tmpdir(), "clonk-extract", game.name.replace(/[^a-zA-Z0-9]/g, "_"));
         const allOutputs = [];
 
         for (const file of packedFiles) {
@@ -798,7 +798,7 @@ const DoneScreen = ({ result }) => {
       ),
     ),
     h(Box, { marginTop: 1 },
-      h(Text, { dimColor: true }, "  To remove: npx claude-sounds --uninstall"),
+      h(Text, { dimColor: true }, "  To remove: npx clonk --uninstall"),
     ),
   );
 };
@@ -840,13 +840,13 @@ const UninstallApp = () => {
   if (phase === "done") {
     return h(Box, { flexDirection: "column" },
       h(Header, null),
-      h(Text, { color: "green", marginLeft: 2 }, "  ✓ Claude Sounds hooks removed."),
+      h(Text, { color: "green", marginLeft: 2 }, "  ✓ Clonk hooks removed."),
     );
   }
 
   return h(Box, { flexDirection: "column" },
     h(Header, null),
-    h(Text, { color: "yellow", marginLeft: 2 }, "  No Claude Sounds configuration found."),
+    h(Text, { color: "yellow", marginLeft: 2 }, "  No Clonk configuration found."),
   );
 };
 
