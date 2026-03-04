@@ -179,12 +179,26 @@ export async function ensureVoiceModel(onProgress) {
 }
 
 /**
- * Speak text using Piper TTS.
+ * Speak text using macOS `say` command (built-in, good quality).
+ */
+function speakMacOS(text) {
+  return new Promise((resolve) => {
+    execFile("say", ["-v", "Daniel", text], { timeout: 15000 }, () => resolve());
+  });
+}
+
+/**
+ * Speak text using Piper TTS, with macOS `say` fallback.
  * Auto-downloads piper and voice model on first use.
  * Returns a promise that resolves when speech is done.
  */
 export async function speak(text, onProgress) {
   if (!text) return;
+
+  // macOS: use built-in `say` — better compatibility, no dylib issues
+  if (platform() === "darwin") {
+    return speakMacOS(text);
+  }
 
   let piperBin, modelPath;
   try {
@@ -201,20 +215,24 @@ export async function speak(text, onProgress) {
   const hash = createHash("md5").update(text).digest("hex").slice(0, 8);
   const outPath = join(tmpdir(), `klaudio-tts-${hash}.wav`);
 
-  await new Promise((resolve, reject) => {
-    const child = execFile(piperBin, [
-      "--model", modelPath,
-      "--output_file", outPath,
-    ], { windowsHide: true, timeout: 15000 }, (err) => {
-      if (err) reject(err);
-      else resolve();
+  try {
+    await new Promise((resolve, reject) => {
+      const child = execFile(piperBin, [
+        "--model", modelPath,
+        "--output_file", outPath,
+      ], { windowsHide: true, timeout: 15000 }, (err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+      // Feed text via stdin
+      child.stdin.write(text);
+      child.stdin.end();
     });
-    // Feed text via stdin
-    child.stdin.write(text);
-    child.stdin.end();
-  });
 
-  // Play the generated wav
-  const { playSoundWithCancel } = await import("./player.js");
-  await playSoundWithCancel(outPath, { maxSeconds: 0 }).promise.catch(() => {});
+    // Play the generated wav
+    const { playSoundWithCancel } = await import("./player.js");
+    await playSoundWithCancel(outPath, { maxSeconds: 0 }).promise.catch(() => {});
+  } catch {
+    // Piper failed (dylib error, etc.) — skip silently
+  }
 }
