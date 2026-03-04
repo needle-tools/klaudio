@@ -408,9 +408,12 @@ export async function handlePlayCommand(args) {
       .trim();
     const sentences = msg.match(/[^.!?]*[.!?]/g);
     const summary = sentences ? sentences[0].trim() : msg.slice(0, 100);
+    // Prefix with project folder name if available
+    const project = hookData.cwd ? hookData.cwd.replace(/\\/g, "/").split("/").pop() : null;
+    const spoken = project ? `${project}: ${summary}` : summary;
     await soundPromise;
     const { speak } = await import("./tts.js");
-    await speak(summary);
+    await speak(spoken);
   } else {
     await soundPromise;
   }
