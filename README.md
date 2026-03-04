@@ -11,15 +11,20 @@ npx klaudio
 The interactive installer walks you through:
 
 1. **Choose scope** — install globally (`~/.claude`) or per-project (`.claude/`), or launch the **Music Player**
-2. **Pick a source** — use a built-in preset, scan your Steam & Epic Games library for sounds, or provide custom files
+2. **Pick a source** — use a built-in preset, OS system sounds, scan your Steam & Epic Games library, or provide custom files
 3. **Preview & assign** — listen to sounds and assign them to events (tab to switch between events)
-4. **Install** — writes Claude Code hooks to your `settings.json`
+4. **Toggle voice summary** — enable TTS to hear a spoken summary when tasks complete
+5. **Install** — writes Claude Code hooks to your `settings.json`
 
 ## Sound Sources
 
 ### Built-in Presets
 
 Ready-made sound packs (Retro 8-bit, Minimal Zen, Sci-Fi Terminal, Victory Fanfare) that work out of the box.
+
+### System Sounds
+
+Use your OS built-in notification sounds (Windows Media, macOS system sounds, Linux sound themes).
 
 ### Game Sound Scanner
 
@@ -47,15 +52,25 @@ Play longer game tracks (90s–4min) as background music while you code:
 
 Requires previously extracted game audio (use "Scan local games" first).
 
+## Voice Summary (TTS)
+
+When enabled, klaudio speaks a short summary of what Claude did after playing the task-complete sound. Uses [Piper](https://github.com/rhasspy/piper) for fast, offline neural text-to-speech (auto-downloaded on first use, ~40MB total).
+
+- Toggle with `t` on the scope or confirm screen
+- Reads the first sentence of Claude's last message
+- Uses the `en_GB-alan-medium` voice (British male)
+- Hooks receive data via stdin from Claude Code — no extra setup needed
+
 ## Features
 
 - **Auto-preview** — sounds play automatically as you browse the list (toggle with `p`)
 - **Multi-game selection** — pick sounds from different games, tab between events
 - **Category filtering** — drill into voice, ambient, SFX, etc. when a game has enough variety
 - **Type-to-filter** — start typing to narrow down long lists
+- **Duration filter** — type `<10s`, `>5s`, `<=3s` etc. to filter by audio length
 - **10-second clamp** — long sounds are processed with ffmpeg: silence stripped, fade out baked in
 - **Background scanning** — game list updates live as directories are scanned
-- **Pre-loads existing config** — re-running the installer shows your current sound selections
+- **Re-apply current sounds** — re-running the installer shows your current selections with a quick re-apply option
 
 ## Events
 
@@ -74,7 +89,8 @@ npx klaudio --uninstall
 
 - Node.js 18+ (Claude Code already requires this)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed
-- For packed audio extraction: internet connection (vgmstream-cli is downloaded automatically)
+- For packed audio extraction: internet connection (vgmstream-cli downloaded automatically)
+- For voice summaries: internet connection on first use (Piper TTS downloaded automatically)
 - For best playback with fade effects: [ffmpeg/ffplay](https://ffmpeg.org/) on PATH (falls back to native players)
 
 > **Note:** Currently only tested on Windows. macOS and Linux support is planned but not yet verified.
