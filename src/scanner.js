@@ -380,6 +380,46 @@ export async function scanForGames(onProgress, onGameFound) {
 }
 
 /**
+ * Discover system sounds (Windows Media, macOS system sounds, Linux sound themes).
+ * Returns an array of { path, name, dir } matching the game file format.
+ */
+export async function getSystemSounds() {
+  const os = platform();
+  const results = [];
+
+  const dirs = [];
+  if (os === "win32") {
+    dirs.push("C:/Windows/Media", "C:/Windows/Media/dm");
+  } else if (os === "darwin") {
+    dirs.push("/System/Library/Sounds");
+  } else {
+    // Linux: common sound theme locations
+    dirs.push(
+      "/usr/share/sounds/freedesktop/stereo",
+      "/usr/share/sounds/gnome/default/alerts",
+      "/usr/share/sounds/ubuntu/stereo",
+      "/usr/share/sounds",
+    );
+  }
+
+  for (const dir of dirs) {
+    if (!(await dirExists(dir))) continue;
+    try {
+      const entries = await readdir(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
+        const ext = extname(entry.name).toLowerCase();
+        if (AUDIO_EXTENSIONS.has(ext)) {
+          results.push({ path: join(dir, entry.name), name: entry.name, dir });
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  return results;
+}
+
+/**
  * Get a flat list of all found game directories.
  */
 export async function getAvailableGames(onProgress, onGameFound) {

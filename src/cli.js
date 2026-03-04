@@ -3,7 +3,7 @@ import { render, Box, Text, useInput, useApp } from "ink";
 import Spinner from "ink-spinner";
 import { PRESETS, EVENTS } from "./presets.js";
 import { playSoundWithCancel, getWavDuration } from "./player.js";
-import { getAvailableGames } from "./scanner.js";
+import { getAvailableGames, getSystemSounds } from "./scanner.js";
 import { install, uninstall, getExistingSounds } from "./installer.js";
 import { getVgmstreamPath, findPackedAudioFiles, extractToWav } from "./extractor.js";
 import { extractUnityResource } from "./unity.js";
@@ -160,6 +160,7 @@ const PresetScreen = ({ onNext, onBack }) => {
       label: `${p.icon} ${p.name}  — ${p.description}`,
       value: id,
     })),
+    { label: "🔔 System sounds  — use built-in OS notification sounds", value: "_system" },
     { label: "🕹️  Scan local games  — find sounds from your Steam & Epic Games library", value: "_scan" },
     { label: "📁 Custom files  — provide your own sound files", value: "_custom" },
   ];
@@ -757,6 +758,16 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
 
   // Phase 1: Browse and pick files (auto-preview plays on highlight)
   const filterLower = filter.toLowerCase();
+
+  // Parse duration filter: "10s", "<10s", "< 10s", ">5s", "> 5s", "<=10s", ">=5s"
+  const durationFilter = useMemo(() => {
+    const m = filter.match(/^\s*(<|>|<=|>=)?\s*(\d+(?:\.\d+)?)\s*s\s*$/);
+    if (!m) return null;
+    const op = m[1] || "<=";
+    const val = parseFloat(m[2]);
+    return { op, val };
+  }, [filter]);
+
   const allFileItems = categoryFiles.map((f) => {
     const dur = fileDurations[f.path];
     const durStr = dur != null ? ` (${dur}s${dur > MAX_PLAY_SECONDS ? `, preview ${MAX_PLAY_SECONDS}s` : ""})` : "";
@@ -768,11 +779,22 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
       label: `${catTag}${name}${durStr}`,
       usedTag: usedFor ? `  ← ${usedFor.join(", ")}` : null,
       value: f.path,
+      _dur: dur,
     };
   });
 
   const filteredFiles = filter
-    ? allFileItems.filter((i) => i.label.toLowerCase().includes(filterLower))
+    ? durationFilter
+      ? allFileItems.filter((i) => {
+          if (i._dur == null) return false;
+          const { op, val } = durationFilter;
+          if (op === "<") return i._dur < val;
+          if (op === ">") return i._dur > val;
+          if (op === "<=") return i._dur <= val;
+          if (op === ">=") return i._dur >= val;
+          return true;
+        })
+      : allFileItems.filter((i) => i.label.toLowerCase().includes(filterLower))
     : allFileItems;
 
   const fileItems = [
@@ -797,12 +819,12 @@ const GameSoundsScreen = ({ game, sounds, onSelectSound, onDone, onBack }) => {
     ),
     filter
       ? h(Box, { marginLeft: 4 },
-          h(Text, { color: "yellow" }, "Filter: "),
+          h(Text, { color: "yellow" }, durationFilter ? "Duration: " : "Filter: "),
           h(Text, { bold: true }, filter),
           h(Text, { dimColor: true }, ` (${filteredFiles.length} match${filteredFiles.length !== 1 ? "es" : ""})`),
         )
       : categoryFiles.length > 15
-        ? h(Text, { dimColor: true, marginLeft: 4 }, "Type to filter...")
+        ? h(Text, { dimColor: true, marginLeft: 4 }, "Type to filter... (e.g. <10s, >5s)")
         : null,
     fileItems.length > 0
       ? h(Box, { marginLeft: 2 },
@@ -1417,6 +1439,12 @@ const InstallApp = () => {
           onNext: (id) => {
             if (id === "_music") {
               setScreen(SCREEN.MUSIC_MODE);
+            } else if (id === "_system") {
+              getSystemSounds().then((files) => {
+                const catFiles = categorizeLooseFiles(files);
+                setSelectedGame({ name: "System Sounds", path: "", files: catFiles, fileCount: catFiles.length, hasAudio: catFiles.length > 0 });
+                setScreen(SCREEN.GAME_SOUNDS);
+              });
             } else if (id === "_scan") {
               setScreen(SCREEN.GAME_PICK);
             } else if (id === "_custom") {
