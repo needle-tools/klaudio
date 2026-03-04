@@ -406,8 +406,35 @@ export async function handlePlayCommand(args) {
       .replace(/^\s*\d+\.\s+/gm, "")        // numbered lists
       .replace(/\n+/g, " ")                 // newlines -> spaces
       .trim();
-    const sentences = msg.match(/[^.!?]*[.!?]/g);
-    const summary = sentences ? sentences[0].trim() : msg.slice(0, 100);
+    // Build summary: include sentences up to ~25 words max.
+    // Short next sentences (<4 chars, e.g. version numbers) are always included.
+    const MAX_WORDS = 25;
+    // Split on sentence-ending punctuation, but not periods between digits (0.8.4)
+    // or inside filenames (auth.js). A period is "sentence-ending" only if followed
+    // by a space+letter, end-of-string, or another sentence-end mark.
+    const sentences = msg.match(/(?:[^.!?]|\.(?=\d|\w{1,5}\b))*[.!?]+/g);
+    let summary;
+    if (!sentences) {
+      summary = msg.split(/\s+/).slice(0, MAX_WORDS).join(" ");
+    } else {
+      summary = sentences[0].trim();
+      for (let i = 1; i < sentences.length; i++) {
+        const next = sentences[i].trim();
+        const wordsSoFar = summary.split(/\s+/).length;
+        const nextWords = next.split(/\s+/).length;
+        // Always include tiny fragments (version numbers, short confirmations)
+        if (next.length < 4) {
+          summary += " " + next;
+          continue;
+        }
+        // Include next sentence if we're still under the word limit
+        if (wordsSoFar + nextWords <= MAX_WORDS) {
+          summary += " " + next;
+        } else {
+          break;
+        }
+      }
+    }
     // Prefix with project folder name if available
     const project = hookData.cwd ? hookData.cwd.replace(/\\/g, "/").split("/").pop() : null;
     const spoken = project ? `${project}: ${summary}` : summary;
