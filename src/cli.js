@@ -137,7 +137,7 @@ const NavHint = ({ back = true, extra = "" }) =>
   );
 
 // ── Screen: Scope ───────────────────────────────────────────────
-const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts }) => {
+const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts, outdatedReasons }) => {
   const items = [
     { label: "Global — Claude Code + Copilot (all projects)", value: "global" },
     { label: "This project — Claude Code + Copilot (this project only)", value: "project" },
@@ -161,7 +161,17 @@ const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts }) => {
     }
   });
 
+  const isOutdated = outdatedReasons && outdatedReasons.length > 0;
+
   return h(Box, { flexDirection: "column" },
+    isOutdated
+      ? h(Box, { flexDirection: "column", marginLeft: 2, marginBottom: 1 },
+          h(Text, { color: "yellow", bold: true }, "  Updates available — re-apply to enable:"),
+          ...outdatedReasons.map((r, i) =>
+            h(Text, { key: i, color: "yellow", dimColor: true, marginLeft: 4 }, `+ ${r}`),
+          ),
+        )
+      : null,
     h(Text, { bold: true }, "  Where should sounds be installed?"),
     h(Box, { flexDirection: "column", marginLeft: 2 },
       ...items.map((item, i) => h(React.Fragment, { key: item.value },
@@ -1560,6 +1570,18 @@ const InstallApp = () => {
 
   useEffect(() => {
     isKokoroAvailable().then(setHasKokoro).catch(() => {});
+    // Check both scopes for outdated hooks on startup
+    Promise.all([
+      checkHooksOutdated("global"),
+      checkHooksOutdated("project"),
+    ]).then(([g, p]) => {
+      const combined = [...new Set([...g, ...p])];
+      setOutdatedReasons(combined);
+    }).catch(() => {});
+    // Also pre-load existing sounds from global (most common)
+    getExistingSounds("global").then((existing) => {
+      if (Object.keys(existing).length > 0) setSounds(existing);
+    }).catch(() => {});
   }, []);
 
   const initSoundsFromPreset = useCallback((pid) => {
@@ -1572,9 +1594,11 @@ const InstallApp = () => {
       case SCREEN.SCOPE:
         return h(ScopeScreen, {
           tts,
+          outdatedReasons,
           onToggleTts: () => setTts((v) => !v),
           onNext: (s) => {
             setScope(s);
+            // Refresh sounds/outdated for the selected scope
             getExistingSounds(s).then((existing) => {
               if (Object.keys(existing).length > 0) setSounds(existing);
             });
