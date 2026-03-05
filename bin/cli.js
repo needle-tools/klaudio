@@ -31,6 +31,22 @@ if (process.argv[2] === "say") {
   process.exit(0);
 }
 
+// Subcommand: klaudio help / --help / -h
+if (["help", "--help", "-h"].includes(process.argv[2])) {
+  console.log(`
+  klaudio — sound effects & music for your coding sessions
+
+  Usage:
+    npx klaudio                Interactive installer / music player
+    npx klaudio --uninstall    Remove installed hooks
+    npx klaudio play <file>    Play a sound file
+    npx klaudio say "text"     Speak text via TTS
+    npx klaudio notify "t" "b" Send a desktop notification
+    npx klaudio help           Show this help
+`);
+  process.exit(0);
+}
+
 // Default: interactive installer UI
 const { run } = await import("../src/cli.js");
 
