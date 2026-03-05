@@ -220,6 +220,7 @@ export async function speak(text, onProgress) {
       const child = execFile(piperBin, [
         "--model", modelPath,
         "--output_file", outPath,
+        "--sentence_silence", "0.5",
       ], { windowsHide: true, timeout: 15000 }, (err) => {
         if (err) reject(err);
         else resolve();

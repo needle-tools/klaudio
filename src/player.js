@@ -403,8 +403,9 @@ export async function handlePlayCommand(args) {
       .replace(/_([^_]+)_/g, "$1")          // _italic_ -> text
       .replace(/#{1,6}\s+/g, "")            // headings
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1") // [links](url) -> text
-      .replace(/^\s*[-*+]\s+/gm, "")        // list bullets
-      .replace(/^\s*\d+\.\s+/gm, "")        // numbered lists
+      .replace(/\([^)]*\)/g, "")           // remove parenthesised content
+      .replace(/^\s*[-*+]\s+(.*)/gm, "... $1.") // list bullets -> paused items
+      .replace(/^\s*\d+\.\s+(.*)/gm, "... $1.") // numbered lists -> paused items
       .replace(/\n+/g, " ")                 // newlines -> spaces
       .trim();
     // Build summary: include sentences up to ~25 words max.
@@ -430,12 +431,14 @@ export async function handlePlayCommand(args) {
         }
         // Include next sentence if we're still under the word limit
         if (wordsSoFar + nextWords <= MAX_WORDS) {
-          summary += " " + next;
+          summary += " ... " + next;
         } else {
           break;
         }
       }
     }
+    // Collapse repeated ellipsis/dots and ensure pauses between sentences
+    summary = summary.replace(/\.{2,}/g, "...").replace(/\s{2,}/g, " ");
     // Prefix with project folder name if available
     const project = hookData.cwd ? hookData.cwd.replace(/\\/g, "/").split("/").pop() : null;
     const spoken = project ? `${project}: ${summary}` : summary;
