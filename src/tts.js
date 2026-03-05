@@ -317,9 +317,9 @@ async function speakPiper(text, onProgress) {
 
 function speakMacOS(text) {
   return new Promise((resolve) => {
-    execFile("say", ["-v", "Samantha", text], { timeout: 15000 }, (err) => {
+    execFile("say", ["-v", "Samantha", text], { timeout: 30000 }, (err) => {
       if (err) {
-        execFile("say", [text], { timeout: 15000 }, () => resolve());
+        execFile("say", [text], { timeout: 30000 }, () => resolve());
       } else {
         resolve();
       }
@@ -373,7 +373,12 @@ export async function speak(text, options = {}) {
       ? { voice: null, onProgress: options }  // backwards compat: speak(text, onProgress)
       : options;
 
-    // Try Kokoro first (works on all platforms, best quality)
+    // macOS: use built-in `say` (Kokoro's native phonemizer module crashes on macOS)
+    if (platform() === "darwin") {
+      return speakMacOS(text);
+    }
+
+    // Try Kokoro (best quality, Linux/Windows)
     if (await isKokoroAvailable()) {
       try {
         await speakKokoro(text, voice);
@@ -381,11 +386,6 @@ export async function speak(text, options = {}) {
       } catch {
         // Kokoro failed at runtime — fall through
       }
-    }
-
-    // macOS: use built-in `say`
-    if (platform() === "darwin") {
-      return speakMacOS(text);
     }
 
     // Fallback: Piper

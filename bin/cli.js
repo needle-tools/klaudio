@@ -5,7 +5,7 @@ if (process.argv[2] === "play") {
   const { handlePlayCommand } = await import("../src/player.js");
   await handlePlayCommand(process.argv.slice(3));
   // Hard exit: skip native module destructors (onnxruntime crashes during cleanup)
-  process._exit(0);
+  process.exit(0);
 }
 
 // Subcommand: klaudio notify "title" "body"
@@ -30,7 +30,7 @@ if (process.argv[2] === "say") {
     await speak(text, { voice });
   }
   // Hard exit: skip native module destructors (onnxruntime crashes during cleanup)
-  process._exit(0);
+  process.exit(0);
 }
 
 // Subcommand: klaudio help / --help / -h
