@@ -14,7 +14,7 @@ const SOUNDS_DIR = isCompiledBinary
 export const EVENTS = {
   notification: {
     name: "Notification",
-    description: "Plays when Claude needs your attention",
+    description: "Plays when Claude sends a notification (e.g. long task finished in background)",
     hookEvent: "Notification",
     copilotHookEvent: null, // Copilot doesn't have this yet
   },
@@ -23,6 +23,12 @@ export const EVENTS = {
     description: "Plays when Claude finishes a response",
     hookEvent: "Stop",
     copilotHookEvent: "sessionEnd",
+  },
+  approval: {
+    name: "Waiting for Approval",
+    description: "Plays when Claude waits for you to approve an action",
+    hookEvent: null, // Uses PreToolUse/PostToolUse timer, not a direct hook
+    copilotHookEvent: null,
   },
 };
 
@@ -37,6 +43,7 @@ export const PRESETS = {
     sounds: {
       stop: join(SOUNDS_DIR, "retro-8bit", "stop.wav"),
       notification: join(SOUNDS_DIR, "retro-8bit", "notification.wav"),
+      approval: join(SOUNDS_DIR, "retro-8bit", "notification.wav"),
     },
   },
   "minimal-zen": {
@@ -46,6 +53,7 @@ export const PRESETS = {
     sounds: {
       stop: join(SOUNDS_DIR, "minimal-zen", "stop.wav"),
       notification: join(SOUNDS_DIR, "minimal-zen", "notification.wav"),
+      approval: join(SOUNDS_DIR, "minimal-zen", "notification.wav"),
     },
   },
   "sci-fi-terminal": {
@@ -55,6 +63,7 @@ export const PRESETS = {
     sounds: {
       stop: join(SOUNDS_DIR, "sci-fi-terminal", "stop.wav"),
       notification: join(SOUNDS_DIR, "sci-fi-terminal", "notification.wav"),
+      approval: join(SOUNDS_DIR, "sci-fi-terminal", "notification.wav"),
     },
   },
   "victory-fanfare": {
@@ -64,6 +73,7 @@ export const PRESETS = {
     sounds: {
       stop: join(SOUNDS_DIR, "victory-fanfare", "stop.wav"),
       notification: join(SOUNDS_DIR, "victory-fanfare", "notification.wav"),
+      approval: join(SOUNDS_DIR, "victory-fanfare", "notification.wav"),
     },
   },
 };

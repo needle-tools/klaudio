@@ -60,6 +60,12 @@ export async function install({ scope, sounds, tts = false }) {
     const event = EVENTS[eventId];
     if (!event) continue;
 
+    // Approval event uses a PreToolUse/PostToolUse timer instead of a direct hook
+    if (eventId === "approval") {
+      await installApprovalHooks(settings, soundPath, claudeDir);
+      continue;
+    }
+
     const hookEvent = event.hookEvent;
     // Enable TTS only for the "stop" event (task complete)
     const useTts = tts && eventId === "stop";
@@ -99,6 +105,64 @@ export async function install({ scope, sounds, tts = false }) {
     settingsFile,
     installedSounds,
   };
+}
+
+/**
+ * Install approval notification hooks (PreToolUse/PostToolUse timer).
+ * Writes a helper script and hooks that play a sound after 15s if no approval.
+ */
+async function installApprovalHooks(settings, soundPath, claudeDir) {
+  const normalized = soundPath.replace(/\\/g, "/");
+  const scriptPath = join(claudeDir, "approval-notify.sh").replace(/\\/g, "/");
+
+  // Write the timer script
+  const script = `#!/usr/bin/env bash
+# klaudio: approval notification timer
+# Plays a sound if a tool isn't approved within DELAY seconds.
+DELAY=15
+MARKER="/tmp/.claude-approval-pending"
+SOUND="${normalized}"
+
+case "$1" in
+  start)
+    TOKEN="$$-$(date +%s%N)"
+    echo "$TOKEN" > "$MARKER"
+    (
+      sleep "$DELAY"
+      if [ -f "$MARKER" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$TOKEN" ]; then
+        rm -f "$MARKER"
+        npx klaudio play "$SOUND" 2>/dev/null
+      fi
+    ) &
+    ;;
+  cancel)
+    rm -f "$MARKER"
+    ;;
+esac
+`;
+  await writeFile(scriptPath, script, "utf-8");
+
+  // Add PreToolUse hook
+  if (!settings.hooks.PreToolUse) settings.hooks.PreToolUse = [];
+  settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+    (e) => !e._klaudio && !e._klonk
+  );
+  settings.hooks.PreToolUse.push({
+    _klaudio: true,
+    matcher: "",
+    hooks: [{ type: "command", command: `bash "${scriptPath}" start` }],
+  });
+
+  // Add PostToolUse hook
+  if (!settings.hooks.PostToolUse) settings.hooks.PostToolUse = [];
+  settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
+    (e) => !e._klaudio && !e._klonk
+  );
+  settings.hooks.PostToolUse.push({
+    _klaudio: true,
+    matcher: "",
+    hooks: [{ type: "command", command: `bash "${scriptPath}" cancel` }],
+  });
 }
 
 /**
@@ -168,9 +232,23 @@ export async function getExistingSounds(scope) {
     if (!settings.hooks) return sounds;
 
     for (const [eventId, event] of Object.entries(EVENTS)) {
+      // Approval event: read sound from the approval-notify.sh script
+      if (eventId === "approval") {
+        const scriptPath = join(claudeDir, "approval-notify.sh");
+        try {
+          const script = await readFile(scriptPath, "utf-8");
+          const m = script.match(/SOUND="([^"]+\.(wav|mp3|ogg|flac|aac))"/);
+          if (m) {
+            sounds[eventId] = m[1].replace(/\//g, join("a", "b").includes("\\") ? "\\" : "/");
+          }
+        } catch { /* no script */ }
+        continue;
+      }
+
       const hookEntries = settings.hooks[event.hookEvent];
       if (!hookEntries) continue;
-      const entry = hookEntries.find((e) => e._klaudio || e._klonk);
+      const entry = hookEntries.find((e) => e._klaudio || e._klonk
+        || e.hooks?.[0]?.command?.includes("klaudio"));
       if (!entry?.hooks?.[0]?.command) continue;
 
       // Extract file path from the play command
