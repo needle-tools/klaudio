@@ -467,10 +467,19 @@ export async function handlePlayCommand(args) {
     const project = hookData.cwd ? hookData.cwd.replace(/\\/g, "/").split("/").pop() : null;
     const spoken = project ? `${project}: ${summary}` : summary;
     await soundPromise;
-    const { speak } = await import("./tts.js");
     const voice = args.find((a) => a.startsWith("--voice="))?.slice(8)
       || args[args.indexOf("--voice") + 1];
-    await speak(spoken, { voice });
+    // Spawn a detached child process for TTS so the hook can exit immediately
+    const { spawn } = await import("node:child_process");
+    const child = spawn(process.execPath, [
+      "--input-type=module",
+      "-e",
+      `import{speak}from"${import.meta.resolve("./tts.js")}";await speak(${JSON.stringify(spoken)},{voice:${JSON.stringify(voice || undefined)}});`,
+    ], {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
   } else {
     await soundPromise;
   }
