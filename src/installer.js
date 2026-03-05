@@ -119,7 +119,7 @@ async function installApprovalHooks(settings, soundPath, claudeDir) {
   const script = `#!/usr/bin/env bash
 # klaudio: approval notification timer
 # Plays a sound + sends a system notification if a tool isn't approved within DELAY seconds.
-DELAY=60
+DELAY=120
 MARKER="/tmp/.claude-approval-pending"
 SOUND="${normalized}"
 
@@ -304,8 +304,9 @@ export async function checkHooksOutdated(scope) {
       if (!script.includes("klaudio notify")) {
         reasons.push("System notifications on approval wait");
       }
-      if (script.includes("DELAY=15")) {
-        reasons.push("Approval timer too short (15s -> 60s)");
+      const delayMatch = script.match(/DELAY=(\d+)/);
+      if (delayMatch && parseInt(delayMatch[1]) < 120) {
+        reasons.push("Approval timer too short (now 120s)");
       }
     } catch { /* no script */ }
 

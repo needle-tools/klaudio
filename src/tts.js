@@ -367,17 +367,17 @@ export async function speak(text, options = {}) {
       ? { voice: null, onProgress: options }  // backwards compat: speak(text, onProgress)
       : options;
 
+    // macOS: prefer built-in `say` (Kokoro ONNX has threading issues on macOS)
+    if (platform() === "darwin") {
+      return speakMacOS(text);
+    }
+
     // Try Kokoro first (works on all platforms, best quality)
     try {
       await speakKokoro(text, voice);
       return;
     } catch {
       // Kokoro unavailable — fall through
-    }
-
-    // macOS: use built-in `say`
-    if (platform() === "darwin") {
-      return speakMacOS(text);
     }
 
     // Fallback: Piper

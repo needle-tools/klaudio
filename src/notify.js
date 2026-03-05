@@ -52,16 +52,14 @@ function notifyWindows(title, body) {
   let appId;
   const terminal = detectTerminal();
 
+  // Windows requires a registered AUMID for toasts to actually show.
+  // Use Windows Terminal's AUMID as default (works on most Win10+ systems).
+  // For VS Code/Cursor, also add protocol activation so clicking focuses the editor.
+  appId = "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App";
+
   if (terminal === "vscode" || terminal === "cursor") {
-    // VS Code / Cursor: use protocol handler to focus the editor on click
     const protocol = terminal === "cursor" ? "cursor://" : "vscode://";
     toastAttrs = ` activationType="protocol" launch="${protocol}"`;
-    appId = "klaudio";
-  } else if (terminal === "windows-terminal") {
-    // Windows Terminal: use its AUMID so clicking focuses WT
-    appId = "Microsoft.WindowsTerminal_8wekyb3d8bbwe!App";
-  } else {
-    appId = "klaudio";
   }
 
   const toastXml = `<toast${toastAttrs}><visual><binding template="ToastGeneric"><text>${safeTitle}</text><text>${safeBody}</text></binding></visual></toast>`;
@@ -88,39 +86,44 @@ $t = [Windows.UI.Notifications.ToastNotification]::new($x)
 // ── macOS ────────────────────────────────────────────────────────
 
 function notifyMac(title, body) {
-  // Determine which app to activate when the notification is clicked
-  const terminal = detectTerminal();
-  const bundleIds = {
-    vscode: "com.microsoft.VSCode",
-    cursor: "com.todesktop.230313mzl4w4u92",
-    iterm: "com.googlecode.iterm2",
-    terminal: "com.apple.Terminal",
-  };
-  const bundleId = bundleIds[terminal] || "com.apple.Terminal";
+  try {
+    // Determine which app to activate when the notification is clicked
+    const terminal = detectTerminal();
+    const bundleIds = {
+      vscode: "com.microsoft.VSCode",
+      cursor: "com.todesktop.230313mzl4w4u92",
+      iterm: "com.googlecode.iterm2",
+      terminal: "com.apple.Terminal",
+    };
+    const bundleId = bundleIds[terminal] || "com.apple.Terminal";
 
-  // Try terminal-notifier first (best UX: click-to-focus), fall back to osascript
-  return new Promise((resolve) => {
-    const child = spawn("terminal-notifier", [
-      "-title", title, "-message", body,
-      "-activate", bundleId, "-sender", bundleId,
-      "-sound", "default",
-    ], { stdio: "ignore", timeout: 10000 });
+    // Try terminal-notifier first (best UX: click-to-focus), fall back to osascript
+    return new Promise((resolve) => {
+      const child = spawn("terminal-notifier", [
+        "-title", title, "-message", body,
+        "-activate", bundleId, "-sender", bundleId,
+      ], { stdio: "ignore" });
 
-    child.on("error", () => {
-      // terminal-notifier not installed — fall back to osascript
-      const safeTitle = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-      const safeBody = body.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-      const script = `display notification "${safeBody}" with title "${safeTitle}"`;
-      const child2 = spawn("osascript", ["-e", script], {
-        stdio: "ignore",
-        detached: true,
+      child.on("error", () => {
+        // terminal-notifier not installed — fall back to osascript
+        try {
+          const safeTitle = title.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const safeBody = body.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const script = `display notification "${safeBody}" with title "${safeTitle}"`;
+          const child2 = spawn("osascript", ["-e", script], {
+            stdio: "ignore",
+            detached: true,
+          });
+          child2.unref();
+        } catch { /* ignore */ }
+        resolve();
       });
-      child2.unref();
-      resolve();
-    });
 
-    child.on("close", () => resolve());
-  });
+      child.on("close", () => resolve());
+    });
+  } catch {
+    return Promise.resolve();
+  }
 }
 
 // ── Linux ────────────────────────────────────────────────────────
