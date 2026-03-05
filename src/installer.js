@@ -118,8 +118,8 @@ async function installApprovalHooks(settings, soundPath, claudeDir) {
   // Write the timer script
   const script = `#!/usr/bin/env bash
 # klaudio: approval notification timer
-# Plays a sound + speaks a TTS message if a tool isn't approved within DELAY seconds.
-DELAY=15
+# Plays a sound + sends a system notification if a tool isn't approved within DELAY seconds.
+DELAY=60
 MARKER="/tmp/.claude-approval-pending"
 SOUND="${normalized}"
 
@@ -135,6 +135,7 @@ case "$1" in
         PROJECT=$(tail -1 "$MARKER" 2>/dev/null | sed 's|.*[/\\\\]||')
         rm -f "$MARKER"
         npx klaudio play "$SOUND" 2>/dev/null
+        npx klaudio notify "\${PROJECT:-project}" "Waiting for your approval" 2>/dev/null
         npx klaudio say "\${PROJECT:-project} needs your attention" 2>/dev/null
       fi
     ) &
@@ -266,6 +267,58 @@ export async function getExistingSounds(scope) {
   } catch { /* no existing config */ }
 
   return sounds;
+}
+
+/**
+ * Check if existing hooks are outdated (missing features from newer versions).
+ * Returns a list of reasons why hooks should be updated.
+ */
+export async function checkHooksOutdated(scope) {
+  const claudeDir = getTargetDir(scope);
+  const settingsFile = join(claudeDir, "settings.json");
+  const reasons = [];
+
+  try {
+    const existing = await readFile(settingsFile, "utf-8");
+    const settings = JSON.parse(existing);
+    if (!settings.hooks) return reasons;
+
+    // Check Stop hook for --notify flag
+    const stopEntries = settings.hooks.Stop || [];
+    const stopHook = stopEntries.find((e) => e._klaudio || e.hooks?.[0]?.command?.includes("klaudio"));
+    if (stopHook?.hooks?.[0]?.command && !stopHook.hooks[0].command.includes("--notify")) {
+      reasons.push("System notifications on task complete");
+    }
+
+    // Check Notification hook for --notify flag
+    const notifEntries = settings.hooks.Notification || [];
+    const notifHook = notifEntries.find((e) => e._klaudio || e.hooks?.[0]?.command?.includes("klaudio"));
+    if (notifHook?.hooks?.[0]?.command && !notifHook.hooks[0].command.includes("--notify")) {
+      reasons.push("System notifications on background task");
+    }
+
+    // Check approval script for notify command and timer delay
+    const scriptPath = join(claudeDir, "approval-notify.sh");
+    try {
+      const script = await readFile(scriptPath, "utf-8");
+      if (!script.includes("klaudio notify")) {
+        reasons.push("System notifications on approval wait");
+      }
+      if (script.includes("DELAY=15")) {
+        reasons.push("Approval timer too short (15s -> 60s)");
+      }
+    } catch { /* no script */ }
+
+    // Check for duplicate hooks (old bug)
+    for (const [event, entries] of Object.entries(settings.hooks)) {
+      const klaudioEntries = entries.filter((e) => e._klaudio || e._klonk);
+      if (klaudioEntries.length > 1) {
+        reasons.push(`Duplicate ${event} hooks`);
+      }
+    }
+  } catch { /* no existing config */ }
+
+  return reasons;
 }
 
 /**

@@ -386,6 +386,30 @@ export async function handlePlayCommand(args) {
     if (stdinData.trim()) hookData = JSON.parse(stdinData);
   } catch { /* no stdin or invalid JSON */ }
 
+  const notify = args.includes("--notify");
+
+  // Send system notification (detached, never blocks)
+  if (notify) {
+    const project = hookData.cwd ? hookData.cwd.replace(/\\/g, "/").split("/").pop() : null;
+    const notifTitle = project || "klaudio";
+    let notifBody = "Task complete";
+    if (hookData.last_assistant_message) {
+      // Extract first sentence for the notification body
+      const plain = hookData.last_assistant_message
+        .replace(/```[\s\S]*?```/g, "").replace(/`([^`]+)`/g, "$1")
+        .replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1")
+        .replace(/#{1,6}\s+/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .replace(/\([^)]*\)/g, "").replace(/\n+/g, " ").trim();
+      const first = plain.match(/^[^.!?]*[.!?]/)?.[0] || plain.slice(0, 120);
+      notifBody = first.trim();
+    } else if (hookData.message) {
+      notifBody = hookData.message.slice(0, 120);
+    }
+    import("./notify.js").then(({ sendNotification }) =>
+      sendNotification(notifTitle, notifBody)
+    ).catch(() => {});
+  }
+
   // Play sound (fire and forget, don't wait)
   const soundPromise = soundFile
     ? playSoundWithCancel(soundFile).promise.catch(() => {})
@@ -455,9 +479,10 @@ export async function handlePlayCommand(args) {
 /**
  * Generate the shell command string for use in Claude Code hooks.
  */
-export function getHookPlayCommand(soundFilePath, { tts = false, voice } = {}) {
+export function getHookPlayCommand(soundFilePath, { tts = false, voice, notify = true } = {}) {
   const normalized = soundFilePath.replace(/\\/g, "/");
   const ttsFlag = tts ? " --tts" : "";
   const voiceFlag = tts && voice ? ` --voice ${voice}` : "";
-  return `npx klaudio play "${normalized}"${ttsFlag}${voiceFlag}`;
+  const notifyFlag = notify ? " --notify" : "";
+  return `npx klaudio play "${normalized}"${ttsFlag}${voiceFlag}${notifyFlag}`;
 }

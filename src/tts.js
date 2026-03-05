@@ -67,6 +67,16 @@ async function ensureKokoroInstalled() {
 }
 
 /**
+ * Check if kokoro-js is available without loading the model.
+ */
+export async function isKokoroAvailable() {
+  try {
+    await importKokoro();
+    return true;
+  } catch { return false; }
+}
+
+/**
  * Try to import kokoro-js from various locations.
  */
 async function importKokoro() {

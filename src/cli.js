@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { render, Box, Text, useInput, useApp } from "ink";
 import Spinner from "ink-spinner";
 import { PRESETS, EVENTS } from "./presets.js";
-import { KOKORO_PRESET_VOICES, KOKORO_VOICES, KOKORO_DEFAULT_VOICE } from "./tts.js";
+import { KOKORO_PRESET_VOICES, KOKORO_VOICES, KOKORO_DEFAULT_VOICE, isKokoroAvailable } from "./tts.js";
 import { playSoundWithCancel, getWavDuration } from "./player.js";
 import { getAvailableGames, getSystemSounds } from "./scanner.js";
-import { install, uninstall, getExistingSounds } from "./installer.js";
+import { install, uninstall, getExistingSounds, checkHooksOutdated } from "./installer.js";
 import { getVgmstreamPath, findPackedAudioFiles, extractToWav } from "./extractor.js";
 import { extractUnityResource } from "./unity.js";
 import { extractBunFile, isBunFile } from "./scumm.js";
@@ -16,6 +16,17 @@ import { join } from "node:path";
 
 const MAX_PLAY_SECONDS = 10;
 const ACCENT = "#76C41E"; // Needle green-yellow midpoint
+
+/** Truncate a filename: keep first 10 chars + ext (max 4 chars) */
+function shortName(filePath) {
+  const name = basename(filePath);
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0 || name.length <= 18) return name;
+  const stem = name.slice(0, dot);
+  const ext = name.slice(dot);
+  if (stem.length <= 10) return name;
+  return stem.slice(0, 10) + "..." + ext;
+}
 
 const h = React.createElement;
 
@@ -171,11 +182,14 @@ const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts }) => {
 };
 
 // ── Screen: Preset ──────────────────────────────────────────────
-const PresetScreen = ({ existingSounds, onNext, onReapply, onBack }) => {
+const PresetScreen = ({ existingSounds, outdatedReasons, onNext, onReapply, onBack }) => {
   const hasExisting = existingSounds && Object.values(existingSounds).some(Boolean);
+  const isOutdated = outdatedReasons && outdatedReasons.length > 0;
   const items = [
     ...(hasExisting ? [{
-      label: "✓ Re-apply current sounds  — update config with current selections",
+      label: isOutdated
+        ? "⬆ Update hooks  — new features available for your current sounds"
+        : "✓ Re-apply current sounds  — update config with current selections",
       value: "_reapply",
     }] : []),
     ...Object.entries(PRESETS).map(([id, p]) => ({
@@ -206,8 +220,16 @@ const PresetScreen = ({ existingSounds, onNext, onReapply, onBack }) => {
       ? h(Box, { flexDirection: "column", marginLeft: 4, marginBottom: 1 },
           h(Text, { dimColor: true }, "Current sounds:"),
           ...Object.entries(existingSounds).filter(([_, p]) => p).map(([eid, p]) =>
-            h(Text, { key: eid, color: "green", dimColor: true }, `  ✓ ${EVENTS[eid].name}: ${basename(p)}`),
+            h(Text, { key: eid, color: "green", dimColor: true }, `  ✓ ${EVENTS[eid].name}: ${shortName(p)}`),
           ),
+          isOutdated
+            ? h(Box, { flexDirection: "column", marginTop: 1 },
+                h(Text, { color: "yellow" }, "  Updates available:"),
+                ...outdatedReasons.map((r, i) =>
+                  h(Text, { key: i, color: "yellow", dimColor: true }, `    + ${r}`),
+                ),
+              )
+            : null,
         )
       : null,
     h(Box, { flexDirection: "column", marginLeft: 2 },
@@ -1370,11 +1392,11 @@ const ExtractingScreen = ({ game, onDone, onBack }) => {
 };
 
 // ── Screen: Confirm ─────────────────────────────────────────────
-const ConfirmScreen = ({ scope, sounds, tts, voice, onToggleTts, onCycleVoice, onConfirm, onBack }) => {
+const ConfirmScreen = ({ scope, sounds, tts, voice, hasKokoro, onToggleTts, onCycleVoice, onConfirm, onBack }) => {
   useInput((input, key) => {
     if (key.escape) onBack();
     else if (input === "t") onToggleTts();
-    else if (input === "v" && tts) onCycleVoice();
+    else if (input === "v" && tts && hasKokoro) onCycleVoice();
   });
 
   const items = [
@@ -1383,7 +1405,7 @@ const ConfirmScreen = ({ scope, sounds, tts, voice, onToggleTts, onCycleVoice, o
   ];
 
   const soundEntries = Object.entries(sounds).filter(([_, path]) => path);
-  const voiceInfo = KOKORO_VOICES.find((v) => v.id === voice);
+  const voiceInfo = hasKokoro ? KOKORO_VOICES.find((v) => v.id === voice) : null;
 
   return h(Box, { flexDirection: "column" },
     h(Text, { bold: true, marginLeft: 2 }, "  Ready to install:"),
@@ -1391,7 +1413,7 @@ const ConfirmScreen = ({ scope, sounds, tts, voice, onToggleTts, onCycleVoice, o
       h(Text, { marginLeft: 4 }, `Scope: ${scope === "global" ? "Global (Claude Code + Copilot)" : "This project (Claude Code + Copilot)"}`),
       ...soundEntries.map(([eid, path]) =>
         h(Text, { key: eid, marginLeft: 4 },
-          `${EVENTS[eid].name} → ${basename(path)}`
+          `${EVENTS[eid].name} → ${shortName(path)}`
         )
       ),
       h(Box, { marginLeft: 4, marginTop: 1 },
@@ -1530,9 +1552,15 @@ const InstallApp = () => {
   const [installResult, setInstallResult] = useState(null);
   const [tts, setTts] = useState(true);
   const [voice, setVoice] = useState(KOKORO_DEFAULT_VOICE);
+  const [hasKokoro, setHasKokoro] = useState(false);
+  const [outdatedReasons, setOutdatedReasons] = useState([]);
   const [musicFiles, setMusicFiles] = useState([]);
   const [musicGameName, setMusicGameName] = useState(null);
   const [musicShuffle, setMusicShuffle] = useState(false);
+
+  useEffect(() => {
+    isKokoroAvailable().then(setHasKokoro).catch(() => {});
+  }, []);
 
   const initSoundsFromPreset = useCallback((pid) => {
     const preset = PRESETS[pid];
@@ -1550,6 +1578,7 @@ const InstallApp = () => {
             getExistingSounds(s).then((existing) => {
               if (Object.keys(existing).length > 0) setSounds(existing);
             });
+            checkHooksOutdated(s).then(setOutdatedReasons).catch(() => {});
             setScreen(SCREEN.PRESET);
           },
           onMusic: () => setScreen(SCREEN.MUSIC_MODE),
@@ -1558,6 +1587,7 @@ const InstallApp = () => {
       case SCREEN.PRESET:
         return h(PresetScreen, {
           existingSounds: sounds,
+          outdatedReasons,
           onReapply: () => setScreen(SCREEN.CONFIRM),
           onNext: (id) => {
             if (id === "_music") {
@@ -1660,6 +1690,7 @@ const InstallApp = () => {
           sounds,
           tts,
           voice,
+          hasKokoro,
           onToggleTts: () => setTts((v) => !v),
           onCycleVoice: () => setVoice((v) => {
             const idx = KOKORO_VOICES.findIndex((x) => x.id === v);

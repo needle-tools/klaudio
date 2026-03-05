@@ -7,6 +7,17 @@ if (process.argv[2] === "play") {
   process.exit(0);
 }
 
+// Subcommand: klaudio notify "title" "body"
+if (process.argv[2] === "notify") {
+  const title = process.argv[3] || "klaudio";
+  const body = process.argv[4] || "";
+  if (body) {
+    const { sendNotification } = await import("../src/notify.js");
+    await sendNotification(title, body);
+  }
+  process.exit(0);
+}
+
 // Subcommand: klaudio say "text" [--voice <voice>]
 if (process.argv[2] === "say") {
   const args = process.argv.slice(3);
