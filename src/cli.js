@@ -137,15 +137,16 @@ const NavHint = ({ back = true, extra = "" }) =>
   );
 
 // ── Screen: Scope ───────────────────────────────────────────────
-const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts, outdatedReasons }) => {
+const ScopeScreen = ({ onNext, onMusic, onUpdate, tts, onToggleTts, outdatedReasons }) => {
+  const isOutdated = outdatedReasons && outdatedReasons.length > 0;
   const items = [
+    ...(isOutdated ? [{ label: "⬆ Apply updates", value: "_update" }] : []),
     { label: "Global — Claude Code + Copilot (all projects)", value: "global" },
     { label: "This project — Claude Code + Copilot (this project only)", value: "project" },
-    // index 2 = music
     { label: "🎵 Play game music while you code", value: "_music" },
   ];
   const [sel, setSel] = useState(0);
-  const GAP_AT = 2; // visual gap before this index
+  const GAP_AT = (isOutdated ? 1 : 0) + 2; // visual gap before music
 
   useInput((input, key) => {
     if (input === "k" || key.upArrow) {
@@ -156,17 +157,16 @@ const ScopeScreen = ({ onNext, onMusic, tts, onToggleTts, outdatedReasons }) => 
       onToggleTts();
     } else if (key.return) {
       const v = items[sel].value;
-      if (v === "_music") onMusic();
+      if (v === "_update") onUpdate();
+      else if (v === "_music") onMusic();
       else onNext(v);
     }
   });
 
-  const isOutdated = outdatedReasons && outdatedReasons.length > 0;
-
   return h(Box, { flexDirection: "column" },
     isOutdated
       ? h(Box, { flexDirection: "column", marginLeft: 2, marginBottom: 1 },
-          h(Text, { color: "yellow", bold: true }, "  Updates available — re-apply to enable:"),
+          h(Text, { color: "yellow", bold: true }, "  Updates available:"),
           ...outdatedReasons.map((r, i) =>
             h(Text, { key: i, color: "yellow", dimColor: true, marginLeft: 4 }, `+ ${r}`),
           ),
@@ -1604,6 +1604,11 @@ const InstallApp = () => {
             });
             checkHooksOutdated(s).then(setOutdatedReasons).catch(() => {});
             setScreen(SCREEN.PRESET);
+          },
+          onUpdate: () => {
+            // Quick-apply: use global scope with existing sounds, skip to install
+            setScope("global");
+            setScreen(SCREEN.INSTALLING);
           },
           onMusic: () => setScreen(SCREEN.MUSIC_MODE),
         });
