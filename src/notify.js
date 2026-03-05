@@ -65,6 +65,7 @@ function notifyWindows(title, body) {
   const toastXml = `<toast${toastAttrs}><visual><binding template="ToastGeneric"><text>${safeTitle}</text><text>${safeBody}</text></binding></visual></toast>`;
 
   // PowerShell script: show WinRT toast notification
+  // Use -EncodedCommand to avoid all escaping issues with special chars
   const ps = `\
 [void][Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
 [void][Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime]
@@ -73,8 +74,8 @@ $x.LoadXml('${toastXml.replace(/'/g, "''")}')
 $t = [Windows.UI.Notifications.ToastNotification]::new($x)
 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('${appId}').Show($t)`;
 
-  // Run detached so the Node process can exit immediately
-  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", ps], {
+  const encoded = Buffer.from(ps, "utf16le").toString("base64");
+  const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], {
     windowsHide: true,
     detached: true,
     stdio: "ignore",
