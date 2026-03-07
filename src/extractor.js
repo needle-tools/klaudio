@@ -140,7 +140,7 @@ export async function findPackedAudioFiles(gamePath, maxFiles = 50) {
           const ext = extname(entry.name).toLowerCase();
           // Formats vgmstream-cli can convert directly
           // (.bnk needs bnkextr preprocessing — skip for now)
-          if (ext === ".wem" || ext === ".fsb" || ext === ".bank" || ext === ".bun") {
+          if (ext === ".wem" || ext === ".fsb" || ext === ".bank" || ext === ".bun" || ext === ".pck") {
             results.push({ path: fullPath, name: entry.name, dir });
           }
         }
